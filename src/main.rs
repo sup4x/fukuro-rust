@@ -15,6 +15,9 @@ mod message_types;
 use start_connection::start_connection as start_connection_route;
 use actix::Actor;
 use actix_web::{App, HttpServer, web, Responder, HttpResponse, get};
+use std::env;
+
+
 
 #[get("/hello")]
 async fn hello() -> impl Responder {
@@ -23,6 +26,9 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
+    let HOST = env::var("HOST").expect("Host not set");
+    let PORT = env::var("PORT").expect("Port not set");
+
     let chat_server = Lobby::default().start(); //create and spin up a lobby
 
 
@@ -42,7 +48,8 @@ async fn main() -> std::io::Result<()> {
             .service(start_connection_route)
             .data(chat_server.clone())
     )
-        .bind("127.0.0.1:8081")?
+        // .bind("127.0.0.1:8081")?
+        .bind(format!("{}:{}", HOST, PORT))?
         .run()
         .await
 }
