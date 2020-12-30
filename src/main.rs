@@ -26,8 +26,10 @@ async fn hello() -> impl Responder {
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    let HOST = env::var("HOST").expect("Host not set");
-    let PORT = env::var("PORT").expect("Port not set");
+    let port = env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse()
+        .expect("PORT must be a number");
 
     let chat_server = Lobby::default().start(); //create and spin up a lobby
 
@@ -49,7 +51,9 @@ async fn main() -> std::io::Result<()> {
             .data(chat_server.clone())
     )
         // .bind("127.0.0.1:8081")?
-        .bind(format!("{}:{}", HOST, PORT))?
+        // .bind(("0.0.0.0", port))
+        .bind(("0.0.0.0", port))
+        .expect("Can not bind to port 8000")
         .run()
         .await
 }
