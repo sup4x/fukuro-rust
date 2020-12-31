@@ -8,10 +8,11 @@ pub struct Sprite {
     // emotion: i8,
     // cloth: i8,
     // accessory: i8,
-    pub body : Option<String>,
-    pub emotion : Option<String>,
-    pub cloth : Option<String>,
-    pub accessory : Option<String>,
+    pub name: String,
+    pub body : String,
+    pub clothes : String,
+    pub emotion : String,
+    pub offset : String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -41,7 +42,7 @@ pub struct UserDto {
     pub(crate) state : String,
     pub(crate) name : String,
     pub(crate) color : String,
-    // pub sprite : Option<Sprite>,
+    pub(crate) sprite : Sprite,
     pub(crate) position: String
 }
 
@@ -50,7 +51,7 @@ pub struct ServerEvent  {
     pub reason: String,
     pub user: Option<UserDto>,
     // id: i32,
-    pub sender: Option<String>,
+    pub sender: String,
     pub message: Option<String>,
     pub code: Option<String>,
     pub actionCode: Option<String>,

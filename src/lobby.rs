@@ -2,7 +2,7 @@ use crate::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
-use crate::message_types::{ServerEvent, ClientEvent, UserDto};
+use crate::message_types::{ServerEvent, ClientEvent, UserDto, Sprite};
 use actix_web::web::Json;
 
 
@@ -106,7 +106,14 @@ impl Handler<Connect> for Lobby {
                 state: "spectating".to_string(),
                 name: "".to_string(),
                 color: "".to_string(),
-                position: "".to_string()
+                position: "".to_string(),
+                sprite: Sprite {
+                    name: "".to_string(),
+                    body: "".to_string(),
+                    clothes: "".to_string(),
+                    emotion: "".to_string(),
+                    offset: "".to_string()
+                }
             }
         );
 
@@ -140,11 +147,29 @@ impl Handler<ClientActorMessage> for Lobby {
                 user.name = String::from(nameStr);
                 user.color = String::from(colorStr);
 
+                let sprite = clientEvent.sprite.unwrap();
+
+                user.sprite.name = sprite.name.to_string();
+                user.sprite.body = sprite.body.to_string();
+                user.sprite.clothes = sprite.clothes.to_string();
+                user.sprite.emotion = sprite.emotion.to_string();
+                user.sprite.offset = sprite.offset.to_string();
+
+
                 let userJson = serde_json::to_string(user).unwrap();
                 let jsonStr = userJson.as_str();
 
                 // println!("User Data");
                 // println!("User Data {:?}", jsonStr);
+                // let ChatEvent  = ServerEvent {
+                //     reason: "userJoin".to_string(),
+                //     user: user,
+                //     sender: None,
+                //     message: None,
+                //     code: None,
+                //     actionCode: None,
+                //     users: None
+                // }
 
                 let chatEventStr = "{ \"reason\": \"userJoin\", \"user\": ".to_string() + jsonStr + " }";
 
@@ -188,6 +213,17 @@ impl Handler<ClientActorMessage> for Lobby {
 
                 self.sessions.iter().for_each(
                     |client| self.send_message(chatEventMsg.as_str(), client.0)
+                )
+            },
+            "userMove" => {
+                let position = clientEvent.position.as_deref().unwrap();
+                let sender = uid.to_string();
+
+                let senderStr = sender.as_str();
+                let moveUserStr  = "{\"reason\": \"userMove\", \"position\": \"".to_string() + position + "\", \"sender\": \"" + senderStr  + "\"}";
+
+                self.sessions.iter().for_each(
+                    |client| self.send_message(moveUserStr.as_str(), client.0)
                 )
             }
             _ => {
