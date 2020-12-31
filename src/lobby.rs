@@ -106,7 +106,7 @@ impl Handler<Connect> for Lobby {
                 state: "spectating".to_string(),
                 name: "".to_string(),
                 color: "".to_string(),
-                position: "".to_string(),
+                position: "0".to_string(),
                 sprite: Sprite {
                     name: "".to_string(),
                     body: "".to_string(),
@@ -128,22 +128,16 @@ impl Handler<ClientActorMessage> for Lobby {
 
     fn handle(&mut self, msg: ClientActorMessage, _: &mut Context<Self>) -> Self::Result {
         let uid = msg.id;
-        // let eventMsg: ServerEvent = serde_json::from_str(&text).unwrap();
         let clientEvent: ClientEvent = serde_json::from_str(&msg.msg).unwrap();
-        // println!("client struct {:?}", clientEvent);
-        // println!("client msg {}", msg.msg);
         let reason : &str = clientEvent.reason.as_str();
         match reason {
             "userInit" =>  {
-                // self.users.get()
                 let nameVa  = clientEvent.name.unwrap();
                 let nameStr = nameVa.as_str();
                 let colorVa  = clientEvent.color.unwrap();
                 let colorStr = colorVa.as_str();
                 let mut userRef = self.users.get_mut(&uid);
                 let user = userRef.as_deref_mut().unwrap();
-                // user.name = Option::from(String::from(nameStr));
-                // user.color = Option::from(String::from(colorStr));
                 user.name = String::from(nameStr);
                 user.color = String::from(colorStr);
 
@@ -159,32 +153,14 @@ impl Handler<ClientActorMessage> for Lobby {
                 let userJson = serde_json::to_string(user).unwrap();
                 let jsonStr = userJson.as_str();
 
-                // println!("User Data");
-                // println!("User Data {:?}", jsonStr);
-                // let ChatEvent  = ServerEvent {
-                //     reason: "userJoin".to_string(),
-                //     user: user,
-                //     sender: None,
-                //     message: None,
-                //     code: None,
-                //     actionCode: None,
-                //     users: None
-                // }
 
                 let chatEventStr = "{ \"reason\": \"userJoin\", \"user\": ".to_string() + jsonStr + " }";
 
                 self.sessions
-                    // .unwrap()
                     .iter().
-                    // for_each(|client| self.send_message("{\"reason\": \"userJoin\"}",  client.0))
                     for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
-                // self.send_message()
 
                 let users = self.users.values().cloned().collect::<Vec<UserDto>>();
-                // let userJson: Vec<String> = users.iter().map(|u|  serde_json::to_string(&u).unwrap().).collect();
-                // let users : Vec<UserDto> = self.users.into_iter().map(|u| u.1).collect();
-                // println!("users {:?}", users);
-                // println!("userJson {:?}", userJson);
 
                 let usersData = serde_json::to_string(&users).unwrap();
                 let userDataStr = usersData.as_str();
@@ -194,18 +170,6 @@ impl Handler<ClientActorMessage> for Lobby {
 
             }
             "chatMessage" => {
-                // let chatEvent = ServerEvent {
-                //     reason: String::from("chat"),
-                //     user: None,
-                //     sender: None,
-                //     message: None,
-                //     code: None,
-                //     actionCode: None,
-                //     users: None
-                // };
-
-                // msg.msg.message
-                // println!("{:?}", uid);
                 let message = clientEvent.message.as_deref().unwrap();
                 let sender = uid.to_string();
                 let senderStr = sender.as_str();
@@ -225,6 +189,31 @@ impl Handler<ClientActorMessage> for Lobby {
                 self.sessions.iter().for_each(
                     |client| self.send_message(moveUserStr.as_str(), client.0)
                 )
+            }
+            "spriteChange" => {
+                let mut userRef = self.users.get_mut(&uid);
+                let user = userRef.as_deref_mut().unwrap();
+
+                let sprite = clientEvent.sprite.unwrap();
+
+                user.sprite.name = sprite.name.to_string();
+                user.sprite.body = sprite.body.to_string();
+                user.sprite.clothes = sprite.clothes.to_string();
+                user.sprite.emotion = sprite.emotion.to_string();
+                user.sprite.offset = sprite.offset.to_string();
+
+
+                let userJson = serde_json::to_string(user).unwrap();
+                let jsonStr = userJson.as_str();
+
+
+                let chatEventStr = "{ \"reason\": \"spriteChange\", \"user\": ".to_string() + jsonStr + " }";
+
+                self.sessions
+                    // .unwrap()
+                    .iter().
+                    // for_each(|client| self.send_message("{\"reason\": \"userJoin\"}",  client.0))
+                    for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
             }
             _ => {
                 println!("No found message");
