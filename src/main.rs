@@ -28,10 +28,10 @@ async fn hello() -> impl Responder {
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
     // TODO вернуть перед продом
-    // let port = env::var("PORT")
-    //     .unwrap_or_else(|_| "3000".to_string())
-    //     .parse()
-    //     .expect("PORT must be a number");
+    let port = env::var("PORT")
+        .unwrap_or_else(|_| "3000".to_string())
+        .parse()
+        .expect("PORT must be a number");
 
     let chat_server = Lobby::default().start(); //create and spin up a lobby
 
@@ -52,10 +52,10 @@ async fn main() -> std::io::Result<()> {
             .service(start_connection_route)
             .data(chat_server.clone())
     )
-        .bind("127.0.0.1:8081")?
+        // .bind("127.0.0.1:8081")?
         // TODO вернуть перед продом
-        // .bind(("0.0.0.0", port))
-        // .expect("Can not bind to port 8000")
+        .bind(("0.0.0.0", port))
+        .expect("Can not bind to port 8000")
         .run()
         .await
 }
