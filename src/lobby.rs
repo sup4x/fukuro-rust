@@ -4,6 +4,7 @@ use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
 use crate::message_types::{ServerEvent, ClientEvent, UserDto, Sprite};
 use actix_web::web::Json;
+use json::JsonError;
 
 
 type Socket = Recipient<WsMessage>;
@@ -128,97 +129,102 @@ impl Handler<ClientActorMessage> for Lobby {
 
     fn handle(&mut self, msg: ClientActorMessage, _: &mut Context<Self>) -> Self::Result {
         let uid = msg.id;
-        let clientEvent: ClientEvent = serde_json::from_str(&msg.msg).unwrap();
-        let reason : &str = clientEvent.reason.as_str();
-        match reason {
-            "userInit" =>  {
-                let nameVa  = clientEvent.name.unwrap();
-                let nameStr = nameVa.as_str();
-                let colorVa  = clientEvent.color.unwrap();
-                let colorStr = colorVa.as_str();
-                let mut userRef = self.users.get_mut(&uid);
-                let user = userRef.as_deref_mut().unwrap();
-                user.name = String::from(nameStr);
-                user.color = String::from(colorStr);
 
-                let sprite = clientEvent.sprite.unwrap();
+        // let clientEvent: ClientEvent = serde_json::from_str(&msg.msg).unwrap();
+        let clientEventJson = serde_json::from_str(&msg.msg);
+        if clientEventJson.is_ok() {
+            let clientEvent : ClientEvent = clientEventJson.unwrap();
 
-                user.sprite.name = sprite.name.to_string();
-                user.sprite.body = sprite.body.to_string();
-                user.sprite.clothes = sprite.clothes.to_string();
-                user.sprite.emotion = sprite.emotion.to_string();
-                user.sprite.offset = sprite.offset.to_string();
+            let reason : &str = clientEvent.reason.as_str();
+            match reason {
+                "userInit" =>  {
+                    let nameVa  = clientEvent.name.unwrap();
+                    let nameStr = nameVa.as_str();
+                    let colorVa  = clientEvent.color.unwrap();
+                    let colorStr = colorVa.as_str();
+                    let mut userRef = self.users.get_mut(&uid);
+                    let user = userRef.as_deref_mut().unwrap();
+                    user.name = String::from(nameStr);
+                    user.color = String::from(colorStr);
+
+                    let sprite = clientEvent.sprite.unwrap();
+
+                    user.sprite.name = sprite.name.to_string();
+                    user.sprite.body = sprite.body.to_string();
+                    user.sprite.clothes = sprite.clothes.to_string();
+                    user.sprite.emotion = sprite.emotion.to_string();
+                    user.sprite.offset = sprite.offset.to_string();
 
 
-                let userJson = serde_json::to_string(user).unwrap();
-                let jsonStr = userJson.as_str();
+                    let userJson = serde_json::to_string(user).unwrap();
+                    let jsonStr = userJson.as_str();
 
 
-                let chatEventStr = "{ \"reason\": \"userJoin\", \"user\": ".to_string() + jsonStr + " }";
+                    let chatEventStr = "{ \"reason\": \"userJoin\", \"user\": ".to_string() + jsonStr + " }";
 
-                self.sessions
-                    .iter().
-                    for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
+                    self.sessions
+                        .iter().
+                        for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
 
-                let users = self.users.values().cloned().collect::<Vec<UserDto>>();
+                    let users = self.users.values().cloned().collect::<Vec<UserDto>>();
 
-                let usersData = serde_json::to_string(&users).unwrap();
-                let userDataStr = usersData.as_str();
-                let nodeDataStr = "{ \"reason\": \"usersData\", \"users\": ".to_string() + userDataStr + " }";
+                    let usersData = serde_json::to_string(&users).unwrap();
+                    let userDataStr = usersData.as_str();
+                    let nodeDataStr = "{ \"reason\": \"usersData\", \"users\": ".to_string() + userDataStr + " }";
 
-                self.send_message(nodeDataStr.as_str(), &uid)
+                    self.send_message(nodeDataStr.as_str(), &uid)
 
+                }
+                "chatMessage" => {
+                    let message = clientEvent.message.as_deref().unwrap();
+                    let sender = uid.to_string();
+                    let senderStr = sender.as_str();
+                    let chatEventMsg  = "{\"reason\": \"chat\", \"message\": \"".to_string() + message + "\", \"sender\": \"" + senderStr  + "\"}";
+
+                    self.sessions.iter().for_each(
+                        |client| self.send_message(chatEventMsg.as_str(), client.0)
+                    )
+                },
+                "userMove" => {
+                    let position = clientEvent.position.as_deref().unwrap();
+                    let sender = uid.to_string();
+
+                    let senderStr = sender.as_str();
+                    let moveUserStr  = "{\"reason\": \"userMove\", \"position\": \"".to_string() + position + "\", \"sender\": \"" + senderStr  + "\"}";
+
+                    self.sessions.iter().for_each(
+                        |client| self.send_message(moveUserStr.as_str(), client.0)
+                    )
+                }
+                "spriteChange" => {
+                    let mut userRef = self.users.get_mut(&uid);
+                    let user = userRef.as_deref_mut().unwrap();
+
+                    let sprite = clientEvent.sprite.unwrap();
+
+                    user.sprite.name = sprite.name.to_string();
+                    user.sprite.body = sprite.body.to_string();
+                    user.sprite.clothes = sprite.clothes.to_string();
+                    user.sprite.emotion = sprite.emotion.to_string();
+                    user.sprite.offset = sprite.offset.to_string();
+
+
+                    let userJson = serde_json::to_string(user).unwrap();
+                    let jsonStr = userJson.as_str();
+
+
+                    let chatEventStr = "{ \"reason\": \"spriteChange\", \"user\": ".to_string() + jsonStr + " }";
+
+                    self.sessions
+                        // .unwrap()
+                        .iter().
+                        // for_each(|client| self.send_message("{\"reason\": \"userJoin\"}",  client.0))
+                        for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
+                }
+                _ => {
+                    println!("No found message");
+                }
             }
-            "chatMessage" => {
-                let message = clientEvent.message.as_deref().unwrap();
-                let sender = uid.to_string();
-                let senderStr = sender.as_str();
-                let chatEventMsg  = "{\"reason\": \"chat\", \"message\": \"".to_string() + message + "\", \"sender\": \"" + senderStr  + "\"}";
-
-                self.sessions.iter().for_each(
-                    |client| self.send_message(chatEventMsg.as_str(), client.0)
-                )
-            },
-            "userMove" => {
-                let position = clientEvent.position.as_deref().unwrap();
-                let sender = uid.to_string();
-
-                let senderStr = sender.as_str();
-                let moveUserStr  = "{\"reason\": \"userMove\", \"position\": \"".to_string() + position + "\", \"sender\": \"" + senderStr  + "\"}";
-
-                self.sessions.iter().for_each(
-                    |client| self.send_message(moveUserStr.as_str(), client.0)
-                )
-            }
-            "spriteChange" => {
-                let mut userRef = self.users.get_mut(&uid);
-                let user = userRef.as_deref_mut().unwrap();
-
-                let sprite = clientEvent.sprite.unwrap();
-
-                user.sprite.name = sprite.name.to_string();
-                user.sprite.body = sprite.body.to_string();
-                user.sprite.clothes = sprite.clothes.to_string();
-                user.sprite.emotion = sprite.emotion.to_string();
-                user.sprite.offset = sprite.offset.to_string();
-
-
-                let userJson = serde_json::to_string(user).unwrap();
-                let jsonStr = userJson.as_str();
-
-
-                let chatEventStr = "{ \"reason\": \"spriteChange\", \"user\": ".to_string() + jsonStr + " }";
-
-                self.sessions
-                    // .unwrap()
-                    .iter().
-                    // for_each(|client| self.send_message("{\"reason\": \"userJoin\"}",  client.0))
-                    for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
-            }
-            _ => {
-                println!("No found message");
-            }
-
         }
         // if msg.msg.starts_with("\\w") {
         //     if let Some(id_to) = msg.msg.split(' ').collect::<Vec<&str>>().get(1) {

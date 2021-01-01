@@ -35,10 +35,6 @@ async fn main() -> std::io::Result<()> {
 
     let chat_server = Lobby::default().start(); //create and spin up a lobby
 
-
-
-    
-
     // HttpServer::new(move || {
     //     App::new()
     //         // .service(start_connection_route) //. rename with "as" import or naming conflict
