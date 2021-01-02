@@ -48,7 +48,15 @@ impl Handler<Disconnect> for Lobby {
         self.users.remove(&msg.id);
         // self.sessions.remove(&msg.id);
 
-        let disconnectStr = " sebal";
+
+        let initiator = &msg.id.to_string();
+        let initiatorStr = initiator.as_str();
+        let userLeaveEvent = "{ \"reason\": \"userLeft\", \"initiator\": \"".to_string() + initiatorStr + "\"}";
+
+        self.sessions
+            .iter().
+            for_each(|client| self.send_message(userLeaveEvent.as_str(),  client.0));
+        // let disconnectStr = " sebal";
         // println!("sessions {:?}" self.rooms);
         // println!("sessions {:?}" self.sessions);
         // self.sessions
