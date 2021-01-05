@@ -2,7 +2,7 @@ use crate::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use std::collections::{HashMap, HashSet};
 use uuid::Uuid;
-use crate::message_types::{ServerEvent, ClientEvent, UserDto, Sprite};
+use crate::message_types::{ServerEvent, ClientEvent, UserDto, Sprite, RoomChangeEvent};
 use actix_web::web::Json;
 use json::JsonError;
 
@@ -25,6 +25,7 @@ impl Default for Lobby {
 }
 
 impl Lobby {
+
     fn send_message(&self, message: &str, id_to: &Uuid) {
         if let Some(socket_recipient) = self.sessions.get(id_to) {
             let _ = socket_recipient
@@ -33,8 +34,27 @@ impl Lobby {
             println!("attempting to send message but couldn't find user id.");
         }
     }
-    // Добавить отправку событий в комнату
+
+    fn notify_all(&self, message: &str) {
+        self.sessions.iter().for_each(
+            |client| self.send_message(message, client.0)
+        )
+    }
+
+    fn notify_node(&self, node: &str, message: &str ) {
+        let node_users: Vec<String> = self.users.iter()
+            .filter(|u| u.1.node.eq(node) ).map(|u| u.1.id.to_string()).collect();
+        println!("{:?}", node_users);
+        self.sessions.iter()
+            .filter(
+                |client| node_users.contains(&client.0.to_string())
+            )
+            .for_each(
+                |client| self.send_message(message, client.0)
+            )
+    }
 }
+
 
 impl Actor for Lobby {
     type Context = Context<Self>;
@@ -122,7 +142,8 @@ impl Handler<Connect> for Lobby {
                     clothes: "".to_string(),
                     emotion: "".to_string(),
                     offset: "".to_string()
-                }
+                },
+                node: "".to_string()
             }
         );
 
@@ -150,10 +171,14 @@ impl Handler<ClientActorMessage> for Lobby {
                     let nameStr = nameVa.as_str();
                     let colorVa  = clientEvent.color.unwrap();
                     let colorStr = colorVa.as_str();
+                    let nodeOption  = clientEvent.node.unwrap();
+                    let nodeStr = nodeOption.as_str();
+
                     let mut userRef = self.users.get_mut(&uid);
                     let user = userRef.as_deref_mut().unwrap();
                     user.name = String::from(nameStr);
                     user.color = String::from(colorStr);
+                    user.node = String::from(nodeStr);
 
                     let spriteOptional = clientEvent.sprite;
                     if spriteOptional.is_some() {
@@ -200,6 +225,11 @@ impl Handler<ClientActorMessage> for Lobby {
                     let position = clientEvent.position.as_deref().unwrap();
                     let sender = uid.to_string();
 
+                    // Обновляем позицию у всех
+                    let mut userRef = self.users.get_mut(&uid);
+                    let user = userRef.as_deref_mut().unwrap();
+                    user.position = position.to_string();
+
                     let senderStr = sender.as_str();
                     let moveUserStr  = "{\"reason\": \"userMove\", \"position\": \"".to_string() + position + "\", \"sender\": \"" + senderStr  + "\"}";
 
@@ -235,7 +265,25 @@ impl Handler<ClientActorMessage> for Lobby {
                             // for_each(|client| self.send_message("{\"reason\": \"userJoin\"}",  client.0))
                             for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
                     }
+                }
+                "roomChange" => {
+                    let mut userRef = self.users.get_mut(&uid);
+                    let user = userRef.as_deref_mut().unwrap();
 
+
+                    if(clientEvent.node.is_some()) {
+                        let node = clientEvent.node.unwrap();
+                        user.node = node.to_string();
+
+                        let roomChangeEvent = RoomChangeEvent {
+                            reason: "roomChange".to_string(),
+                            initiator: user.id.to_string(),
+                            node: node.to_string()
+                        };
+
+                        let json = serde_json::to_string(&roomChangeEvent).unwrap();
+                        self.notify_all(&json);
+                    }
                 }
                 _ => {
                     println!("No found message");

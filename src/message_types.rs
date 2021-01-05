@@ -43,7 +43,8 @@ pub struct UserDto {
     pub(crate) name : String,
     pub(crate) color : String,
     pub(crate) sprite : Sprite,
-    pub(crate) position: String
+    pub(crate) position: String,
+    pub(crate) node: String
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -56,6 +57,14 @@ pub struct ServerEvent  {
     pub code: Option<String>,
     pub actionCode: Option<String>,
     pub users: Option<Vec<UserDto>>,
+}
+
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct RoomChangeEvent  {
+    pub reason: String,
+    pub initiator: String,
+    pub node: String,
 }
 
 // impl ServerEvent {
