@@ -1,10 +1,8 @@
 use crate::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
 use actix::prelude::{Actor, Context, Handler, Recipient};
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap};
+use crate::message_types::{ClientEvent, UserDto, Sprite, UserJoinEvent, SpriteChangeEvent, UserLeftEvent, UpdateUserPosition, ChatEvent, NodeUsersEvent};
 use uuid::Uuid;
-use crate::message_types::{ServerEvent, ClientEvent, UserDto, Sprite, RoomChangeEvent};
-use actix_web::web::Json;
-use json::JsonError;
 
 
 type Socket = Recipient<WsMessage>;
@@ -18,7 +16,6 @@ impl Default for Lobby {
     fn default() -> Lobby {
         Lobby {
             sessions: HashMap::new(),
-            // rooms: HashMap::new(),
             users: HashMap::new()
         }
     }
@@ -35,16 +32,17 @@ impl Lobby {
         }
     }
 
+    #[allow(dead_code)]
     fn notify_all(&self, message: &str) {
         self.sessions.iter().for_each(
             |client| self.send_message(message, client.0)
         )
     }
 
+
     fn notify_node(&self, node: &str, message: &str ) {
         let node_users: Vec<String> = self.users.iter()
             .filter(|u| u.1.node.eq(node) ).map(|u| u.1.id.to_string()).collect();
-        println!("{:?}", node_users);
         self.sessions.iter()
             .filter(
                 |client| node_users.contains(&client.0.to_string())
@@ -52,6 +50,59 @@ impl Lobby {
             .for_each(
                 |client| self.send_message(message, client.0)
             )
+    }
+
+    fn init_user(&mut self, client_event: ClientEvent, uuid: Uuid) {
+        let mut user_ref = self.users.get_mut(&uuid);
+        let user = user_ref.as_deref_mut().unwrap();
+
+        if client_event.name.is_some() && client_event.color.is_some() && client_event.node.is_some() {
+            let name = client_event.name.unwrap();
+            let color = client_event.color.unwrap();
+            let node = client_event.node.unwrap();
+            user.name = String::from(name.as_str());
+            user.color = String::from(color.as_str());
+            user.node = String::from(node.as_str());
+            user.state = "active".to_string();
+        }
+    }
+
+    fn update_user_sprite(&mut self, client_event: ClientEvent, uuid: Uuid) {
+        let mut user_ref = self.users.get_mut(&uuid);
+        let user = user_ref.as_deref_mut().unwrap();
+        if client_event.sprite.is_some() {
+            let sprite = client_event.sprite.unwrap();
+            user.sprite.name = sprite.name.to_string();
+            user.sprite.body = sprite.body.to_string();
+            user.sprite.clothes = sprite.clothes.to_string();
+            user.sprite.emotion = sprite.emotion.to_string();
+            user.sprite.offset = sprite.offset.to_string();
+        }
+    }
+
+    fn get_user(&mut self, uuid: Uuid) -> UserDto {
+        let user = self.users.get(&uuid).as_deref().cloned().unwrap();
+        return user;
+    }
+
+    fn update_position(&mut self, uuid: Uuid, position: String) {
+        let mut user_ref = self.users.get_mut(&uuid);
+        let user = user_ref.as_deref_mut().unwrap();
+        user.position = position.to_owned().to_string();
+    }
+
+    fn change_node(&mut self, uuid: Uuid, node: String) {
+        let mut user_ref = self.users.get_mut(&uuid);
+        let user = user_ref.as_deref_mut().unwrap();
+        user.node = node.to_owned().to_string();
+    }
+
+    fn get_node_users(&mut self, node: &str) -> Vec<UserDto> {
+        let node_users = self.users.iter()
+            .filter(|u| u.1.node.eq(node))
+            .map(|u| u.1)
+            .cloned().collect();
+        return node_users;
     }
 }
 
@@ -65,62 +116,22 @@ impl Handler<Disconnect> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: Disconnect, _: &mut Context<Self>) {
+        let user = self.get_user(msg.id);
         self.users.remove(&msg.id);
-        // self.sessions.remove(&msg.id);
-
-
         let initiator = &msg.id.to_string();
-        let initiatorStr = initiator.as_str();
-        let userLeaveEvent = "{ \"reason\": \"userLeft\", \"initiator\": \"".to_string() + initiatorStr + "\"}";
-
-        self.sessions
-            .iter().
-            for_each(|client| self.send_message(userLeaveEvent.as_str(),  client.0));
-        // let disconnectStr = " sebal";
-        // println!("sessions {:?}" self.rooms);
-        // println!("sessions {:?}" self.sessions);
-        // self.sessions
-            // .unwrap()
-            // .iter().
-            // for_each(|client| self.send_message("{\"reason\": \"userJoin\"}",  client.0))
-            // for_each(|client| self.send_message(disconnectStr,  client.0));
-        //     self.rooms
-        //         .get(&msg.room_id)
-        //         .unwrap()
-        //         .iter()
-        //         .filter(|conn_id| *conn_id.to_owned() != msg.id)
-        //         .for_each(|user_id| self.send_message(&format!("{} disconnected.", &msg.id), user_id));
-        //     if let Some(lobby) = self.rooms.get_mut(&msg.room_id) {
-        //         if lobby.len() > 1 {
-        //             lobby.remove(&msg.id);
-        //         } else {
-        //             //only one in the lobby, remove it entirely
-        //             self.rooms.remove(&msg.room_id);
-        //         }
-        //     }
-        // }
+        let user_left_event = UserLeftEvent {
+            reason: "userLeft".to_string(),
+            initiator: initiator.to_string()
+        };
+        let user_left_json = serde_json::to_string(&user_left_event).unwrap();
+        self.notify_node(&user.node, &user_left_json);
     }
 }
-
 
 impl Handler<Connect> for Lobby {
     type Result = ();
 
     fn handle(&mut self, msg: Connect, _: &mut Context<Self>) -> Self::Result {
-        // create a room if necessary, and then add the id to it
-        // self.rooms
-            // .entry(msg.lobby_id)
-            // .or_insert_with(HashSet::new).insert(msg.self_id);
-
-        // send to everyone in the room that new uuid just joined
-        // self
-        //     .rooms
-        //     .get(&msg.lobby_id)
-        //     .unwrap()
-        //     .iter()
-        //     .filter(|conn_id| *conn_id.to_owned() != msg.self_id)
-        //     .for_each(|conn_id| self.send_message(&format!("{} just joined!", msg.self_id), conn_id));
-
         // store the address
         self.sessions.insert(
             msg.self_id,
@@ -146,9 +157,6 @@ impl Handler<Connect> for Lobby {
                 node: "".to_string()
             }
         );
-
-        // send self your new uuid
-        // self.send_message(&format!("your id is {}", msg.self_id), &msg.self_id);
         self.send_message(&msg.self_id.to_string(), &msg.self_id);
     }
 }
@@ -159,130 +167,98 @@ impl Handler<ClientActorMessage> for Lobby {
     fn handle(&mut self, msg: ClientActorMessage, _: &mut Context<Self>) -> Self::Result {
         let uid = msg.id;
 
-        // let clientEvent: ClientEvent = serde_json::from_str(&msg.msg).unwrap();
-        let clientEventJson = serde_json::from_str(&msg.msg);
-        if clientEventJson.is_ok() {
-            let clientEvent : ClientEvent = clientEventJson.unwrap();
+        let client_event_json = serde_json::from_str(&msg.msg);
+        if client_event_json.is_ok() {
+            let client_event : ClientEvent = client_event_json.unwrap();
 
-            let reason : &str = clientEvent.reason.as_str();
+            let reason : &str = client_event.reason.as_str();
             match reason {
                 "userInit" =>  {
-                    let nameVa  = clientEvent.name.unwrap();
-                    let nameStr = nameVa.as_str();
-                    let colorVa  = clientEvent.color.unwrap();
-                    let colorStr = colorVa.as_str();
-                    let nodeOption  = clientEvent.node.unwrap();
-                    let nodeStr = nodeOption.as_str();
+                    self.init_user(client_event.to_owned(), uid);
+                    self.update_user_sprite(client_event.to_owned(), uid);
+                    let user = self.get_user(uid);
+                    let user_join_event = UserJoinEvent {
+                        reason: "userJoin".to_string(),
+                        user: user.to_owned()
+                    };
+                    let user_join_event_json = serde_json::to_string(&user_join_event)
+                        .unwrap();
+                    self.notify_node(&user.node, &user_join_event_json);
 
-                    let mut userRef = self.users.get_mut(&uid);
-                    let user = userRef.as_deref_mut().unwrap();
-                    user.name = String::from(nameStr);
-                    user.color = String::from(colorStr);
-                    user.node = String::from(nodeStr);
+                    let users = self.get_node_users(&user.node);
 
-                    let spriteOptional = clientEvent.sprite;
-                    if spriteOptional.is_some() {
-                        let sprite = spriteOptional.unwrap();
+                    let node_users_event = NodeUsersEvent {
+                        reason: "nodeUsers".to_string(),
+                        users
+                    };
 
-                        user.sprite.name = sprite.name.to_string();
-                        user.sprite.body = sprite.body.to_string();
-                        user.sprite.clothes = sprite.clothes.to_string();
-                        user.sprite.emotion = sprite.emotion.to_string();
-                        user.sprite.offset = sprite.offset.to_string();
-
-
-                        let userJson = serde_json::to_string(user).unwrap();
-                        let jsonStr = userJson.as_str();
-
-
-                        let chatEventStr = "{ \"reason\": \"userJoin\", \"user\": ".to_string() + jsonStr + " }";
-
-                        self.sessions
-                            .iter().
-                            for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
-
-                        let users = self.users.values().cloned().collect::<Vec<UserDto>>();
-
-                        let usersData = serde_json::to_string(&users).unwrap();
-                        let userDataStr = usersData.as_str();
-                        let nodeDataStr = "{ \"reason\": \"usersData\", \"users\": ".to_string() + userDataStr + " }";
-
-                        self.send_message(nodeDataStr.as_str(), &uid)
-                    }
+                    let json = serde_json::to_string(&node_users_event).unwrap();
+                    self.send_message(&json, &uid);
 
                 }
                 "chatMessage" => {
-                    let message = clientEvent.message.as_deref().unwrap();
+                    let message = client_event.message.as_deref().unwrap();
                     let sender = uid.to_string();
-                    let senderStr = sender.as_str();
-                    let chatEventMsg  = "{\"reason\": \"chat\", \"message\": \"".to_string() + message + "\", \"sender\": \"" + senderStr  + "\"}";
-
-                    self.sessions.iter().for_each(
-                        |client| self.send_message(chatEventMsg.as_str(), client.0)
-                    )
+                    let user = self.get_user(uid);
+                    let chat_event = ChatEvent {
+                        reason: "chat".to_string(),
+                        message: message.to_string(),
+                        sender
+                    };
+                    let json = serde_json::to_string(&chat_event).unwrap();
+                    self.notify_node(&user.node, &json);
                 },
                 "userMove" => {
-                    let position = clientEvent.position.as_deref().unwrap();
-                    let sender = uid.to_string();
-
-                    // Обновляем позицию у всех
-                    let mut userRef = self.users.get_mut(&uid);
-                    let user = userRef.as_deref_mut().unwrap();
-                    user.position = position.to_string();
-
-                    let senderStr = sender.as_str();
-                    let moveUserStr  = "{\"reason\": \"userMove\", \"position\": \"".to_string() + position + "\", \"sender\": \"" + senderStr  + "\"}";
-
-                    self.sessions.iter().for_each(
-                        |client| self.send_message(moveUserStr.as_str(), client.0)
-                    )
+                    let user = self.get_user(uid);
+                    let position = client_event.position.as_deref().unwrap();
+                    self.update_position(uid, position.to_string());
+                    let update_user_position_event = UpdateUserPosition {
+                        reason: "userMove".to_string(),
+                        position: position.to_string(),
+                        sender: user.id.to_string()
+                    };
+                    let json = serde_json::to_string(&update_user_position_event).unwrap();
+                    self.notify_node(&user.node, &json);
                 }
                 "spriteChange" => {
-                    let mut userRef = self.users.get_mut(&uid);
-                    let user = userRef.as_deref_mut().unwrap();
-
-                    // let sprite = clientEvent.sprite.unwrap();
-                    let spriteOption = clientEvent.sprite;
-                    if spriteOption.is_some() {
-                        let sprite = spriteOption.unwrap();
-
-                        user.sprite.name = sprite.name.to_string();
-                        user.sprite.body = sprite.body.to_string();
-                        user.sprite.clothes = sprite.clothes.to_string();
-                        user.sprite.emotion = sprite.emotion.to_string();
-                        user.sprite.offset = sprite.offset.to_string();
-
-
-                        let userJson = serde_json::to_string(user).unwrap();
-                        let jsonStr = userJson.as_str();
-
-
-                        let chatEventStr = "{ \"reason\": \"spriteChange\", \"user\": ".to_string() + jsonStr + " }";
-
-                        self.sessions
-                            // .unwrap()
-                            .iter().
-                            // for_each(|client| self.send_message("{\"reason\": \"userJoin\"}",  client.0))
-                            for_each(|client| self.send_message(chatEventStr.as_str(),  client.0));
-                    }
+                    self.update_user_sprite(client_event, uid);
+                    let user = self.get_user(uid);
+                    let sprite_change_event = SpriteChangeEvent {
+                        reason: "spriteChange".to_string(),
+                        user: user.to_owned()
+                    };
+                    let sprite_change_event_json = serde_json::to_string(&sprite_change_event)
+                        .unwrap();
+                    self.notify_node(&user.node, &sprite_change_event_json);
                 }
                 "roomChange" => {
-                    let mut userRef = self.users.get_mut(&uid);
-                    let user = userRef.as_deref_mut().unwrap();
+                    if client_event.node.is_some() {
+                        let node = client_event.node.as_deref().unwrap();
+                        self.change_node(uid, node.to_string());
+                        let user = self.get_user(uid.to_owned());
 
-
-                    if(clientEvent.node.is_some()) {
-                        let node = clientEvent.node.unwrap();
-                        user.node = node.to_string();
-
-                        let roomChangeEvent = RoomChangeEvent {
-                            reason: "roomChange".to_string(),
-                            initiator: user.id.to_string(),
-                            node: node.to_string()
+                        let user_left_event = UserLeftEvent {
+                            reason: "userLeft".to_string(),
+                            initiator: user.id.to_string()
                         };
+                        let json = serde_json::to_string(&user_left_event).unwrap();
+                        self.notify_node(&node, &json);
 
-                        let json = serde_json::to_string(&roomChangeEvent).unwrap();
-                        self.notify_all(&json);
+                        let user_join_event = UserJoinEvent {
+                            reason: "userJoin".to_string(),
+                            user: user.to_owned()
+                        };
+                        // ниндзя код
+                        let json2 = serde_json::to_string(&user_join_event).unwrap();
+                        self.notify_node(&user.node, &json2);
+
+                        let users = self.get_node_users(&user.node);
+                        let node_users_event = NodeUsersEvent {
+                            reason: "nodeUsers".to_string(),
+                            users
+                        };
+                        let json3 = serde_json::to_string(&node_users_event).unwrap();
+                        self.send_message(&json3, &uid);
                     }
                 }
                 _ => {
@@ -290,13 +266,5 @@ impl Handler<ClientActorMessage> for Lobby {
                 }
             }
         }
-        // if msg.msg.starts_with("\\w") {
-        //     if let Some(id_to) = msg.msg.split(' ').collect::<Vec<&str>>().get(1) {
-        //         self.send_message(&msg.msg, &Uuid::parse_str(id_to).unwrap());
-        //     }
-        // } else {
-        //
-        //     self.rooms.get(&msg.room_id).unwrap().iter().for_each(|client| self.send_message(&msg.msg, client));
-        // }
     }
 }

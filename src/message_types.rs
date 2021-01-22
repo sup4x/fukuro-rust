@@ -1,6 +1,5 @@
 use serde::{Serialize, Deserialize};
 
-
 #[derive(Debug, Serialize, Deserialize)]
 #[derive(Clone)]
 pub struct Sprite {
@@ -16,6 +15,7 @@ pub struct Sprite {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct ClientEvent {
     pub reason : String,
     pub id: Option<i64>,
@@ -32,45 +32,55 @@ pub struct ClientEvent {
 #[derive(Debug, Serialize, Deserialize)]
 #[derive(Clone)]
 pub struct UserDto {
-    // pub id : Option<String>,
-    // pub state : Option<String>,
-    // pub name : Option<String>,
-    // pub color : Option<String>,
-    // pub sprite : Option<Sprite>,
-    // pub position: Option<String>
-    pub(crate) id : String,
-    pub(crate) state : String,
-    pub(crate) name : String,
-    pub(crate) color : String,
-    pub(crate) sprite : Sprite,
-    pub(crate) position: String,
-    pub(crate) node: String
+    pub id : String,
+    pub state : String,
+    pub name : String,
+    pub color : String,
+    pub sprite : Sprite,
+    pub position: String,
+    pub node: String
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct ServerEvent  {
+pub struct UserJoinEvent {
     pub reason: String,
-    pub user: Option<UserDto>,
-    // id: i32,
-    pub sender: String,
-    pub message: Option<String>,
-    pub code: Option<String>,
-    pub actionCode: Option<String>,
-    pub users: Option<Vec<UserDto>>,
+    pub user: UserDto,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct SpriteChangeEvent {
+    pub reason: String,
+    pub user: UserDto,
+}
 
 #[derive(Debug, Serialize, Deserialize)]
-pub struct RoomChangeEvent  {
+pub struct UserLeftEvent {
     pub reason: String,
     pub initiator: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UpdateUserPosition {
+    pub reason: String,
+    pub position: String,
+    pub sender: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChangeUserNode {
+    pub reason: String,
     pub node: String,
 }
 
-// impl ServerEvent {
-//     pub fn new(reason: &str) -> ServerEvent {
-//         return ServerEvent {
-//             reason: String::from_string(&reason),
-//         }
-//     }
-// }
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ChatEvent {
+    pub reason: String,
+    pub message: String,
+    pub sender: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct NodeUsersEvent {
+    pub reason: String,
+    pub users: Vec<UserDto>,
+}
