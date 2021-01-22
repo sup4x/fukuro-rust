@@ -4,7 +4,7 @@ use actix::Addr;
 use actix_web::{get, web::Data, web::Payload, Error, HttpResponse, HttpRequest};
 use actix_web_actors::ws;
 
-#[get("/")]
+#[get("/ws")]
 pub async fn start_connection(
     req: HttpRequest,
     stream: Payload,
