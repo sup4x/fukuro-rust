@@ -234,25 +234,29 @@ impl Handler<ClientActorMessage> for Lobby {
                 "roomChange" => {
                     if client_event.node.is_some() {
                         let node = client_event.node.as_deref().unwrap();
-                        self.change_node(uid, node.to_string());
                         let user = self.get_user(uid.to_owned());
+                        let old_node = user.node.clone();
+
+                        self.change_node(uid, node.to_string());
 
                         let user_left_event = UserLeftEvent {
                             reason: "userLeft".to_string(),
                             initiator: user.id.to_string()
                         };
+
+                        let fresh_user = self.get_user(uid.to_owned());
                         let json = serde_json::to_string(&user_left_event).unwrap();
-                        self.notify_node(&node, &json);
+                        self.notify_node(&old_node, &json);
 
                         let user_join_event = UserJoinEvent {
                             reason: "userJoin".to_string(),
-                            user: user.to_owned()
+                            user: fresh_user.to_owned()
                         };
                         // ниндзя код
                         let json2 = serde_json::to_string(&user_join_event).unwrap();
-                        self.notify_node(&user.node, &json2);
+                        self.notify_node(node, &json2);
 
-                        let users = self.get_node_users(&user.node);
+                        let users = self.get_node_users(node);
                         let node_users_event = NodeUsersEvent {
                             reason: "nodeUsers".to_string(),
                             users
