@@ -80,21 +80,31 @@ impl Lobby {
         }
     }
 
-    fn get_user(&mut self, uuid: Uuid) -> UserDto {
-        let user = self.users.get(&uuid).as_deref().cloned().unwrap();
-        return user;
+    fn get_user(&mut self, uuid: Uuid) -> Option<UserDto> {
+        let user = self.users.get(&uuid).as_deref().cloned();
+        user
     }
 
     fn update_position(&mut self, uuid: Uuid, position: String) {
         let mut user_ref = self.users.get_mut(&uuid);
-        let user = user_ref.as_deref_mut().unwrap();
-        user.position = position.to_owned().to_string();
+        let user = user_ref.as_deref_mut();
+        match user {
+            Some(user) => {
+                user.position = position.to_owned().to_string();
+            }
+            _ => {}
+        }
     }
 
     fn change_node(&mut self, uuid: Uuid, node: String) {
         let mut user_ref = self.users.get_mut(&uuid);
-        let user = user_ref.as_deref_mut().unwrap();
-        user.node = node.to_owned().to_string();
+        let user = user_ref.as_deref_mut();
+        match user {
+            Some(user) => {
+                user.node = node.to_owned().to_string();
+            }
+            _ => {}
+        }
     }
 
     fn get_node_users(&mut self, node: &str) -> Vec<UserDto> {
@@ -123,8 +133,14 @@ impl Handler<Disconnect> for Lobby {
             reason: "userLeft".to_string(),
             initiator: initiator.to_string()
         };
-        let user_left_json = serde_json::to_string(&user_left_event).unwrap();
-        self.notify_node(&user.node, &user_left_json);
+
+        match user {
+            Some(user) => {
+                let user_left_json = serde_json::to_string(&user_left_event).unwrap();
+                self.notify_node(&user.node, &user_left_json);
+            }
+            _ => {}
+        }
     }
 }
 
@@ -177,84 +193,120 @@ impl Handler<ClientActorMessage> for Lobby {
                     self.init_user(client_event.to_owned(), uid);
                     self.update_user_sprite(client_event.to_owned(), uid);
                     let user = self.get_user(uid);
-                    let user_join_event = UserJoinEvent {
-                        reason: "userJoin".to_string(),
-                        user: user.to_owned()
-                    };
-                    let user_join_event_json = serde_json::to_string(&user_join_event)
-                        .unwrap();
-                    self.notify_node(&user.node, &user_join_event_json);
 
-                    let users = self.get_node_users(&user.node);
+                    match user {
+                        Some(user) => {
+                            let user_join_event = UserJoinEvent {
+                                reason: "userJoin".to_string(),
+                                user: user.to_owned()
+                            };
+                            let user_join_event_json = serde_json::to_string(&user_join_event).unwrap();
+                            self.notify_node(&user.node, &user_join_event_json);
 
-                    let node_users_event = NodeUsersEvent {
-                        reason: "nodeUsers".to_string(),
-                        users
-                    };
+                            let users = self.get_node_users(&user.node);
 
-                    let json = serde_json::to_string(&node_users_event).unwrap();
-                    self.send_message(&json, &uid);
+                            let node_users_event = NodeUsersEvent {
+                                reason: "nodeUsers".to_string(),
+                                users
+                            };
+
+                            let json = serde_json::to_string(&node_users_event).unwrap();
+                            self.send_message(&json, &uid);
+                        }
+                        _ => {}
+                    }
 
                 }
                 "chatMessage" => {
                     let message = client_event.message.as_deref().unwrap();
                     let sender = uid.to_string();
                     let user = self.get_user(uid);
-                    let chat_event = ChatEvent {
-                        reason: "chat".to_string(),
-                        message: message.to_string(),
-                        sender
-                    };
-                    let json = serde_json::to_string(&chat_event).unwrap();
-                    self.notify_node(&user.node, &json);
+
+
+                    match user {
+                        Some(user) => {
+                            let chat_event = ChatEvent {
+                                reason: "chat".to_string(),
+                                message: message.to_string(),
+                                sender
+                            };
+                            let json = serde_json::to_string(&chat_event).unwrap();
+                            self.notify_node(&user.node, &json);
+                        }
+                        _ => {}
+                    }
                 },
                 "userMove" => {
                     let user = self.get_user(uid);
-                    let position = client_event.position.as_deref().unwrap();
-                    self.update_position(uid, position.to_string());
-                    let update_user_position_event = UpdateUserPosition {
-                        reason: "userMove".to_string(),
-                        position: position.to_string(),
-                        sender: user.id.to_string()
-                    };
-                    let json = serde_json::to_string(&update_user_position_event).unwrap();
-                    self.notify_node(&user.node, &json);
+
+                    match user {
+                        Some(user) => {
+                            let position = client_event.position.as_deref().unwrap();
+                            self.update_position(uid, position.to_string());
+                            let update_user_position_event = UpdateUserPosition {
+                                reason: "userMove".to_string(),
+                                position: position.to_string(),
+                                sender: user.id.to_string()
+                            };
+                            let json = serde_json::to_string(&update_user_position_event).unwrap();
+                            self.notify_node(&user.node, &json);
+                        }
+                        _ => {}
+                    }
                 }
                 "spriteChange" => {
                     self.update_user_sprite(client_event, uid);
                     let user = self.get_user(uid);
-                    let sprite_change_event = SpriteChangeEvent {
-                        reason: "spriteChange".to_string(),
-                        user: user.to_owned()
-                    };
-                    let sprite_change_event_json = serde_json::to_string(&sprite_change_event)
-                        .unwrap();
-                    self.notify_node(&user.node, &sprite_change_event_json);
+
+                    match user {
+                        Some(user) => {
+                            let sprite_change_event = SpriteChangeEvent {
+                                reason: "spriteChange".to_string(),
+                                user: user.to_owned()
+                            };
+                            let sprite_change_event_json = serde_json::to_string(&sprite_change_event)
+                                .unwrap();
+                            self.notify_node(&user.node, &sprite_change_event_json);
+                        }
+                        _ => {}
+                    }
                 }
                 "roomChange" => {
                     if client_event.node.is_some() {
                         let node = client_event.node.as_deref().unwrap();
                         let user = self.get_user(uid.to_owned());
-                        let old_node = user.node.clone();
 
-                        self.change_node(uid, node.to_string());
+                        match user {
+                            Some(user) => {
+                                let old_node = user.node.clone();
 
-                        let user_left_event = UserLeftEvent {
-                            reason: "userLeft".to_string(),
-                            initiator: user.id.to_string()
-                        };
+                                self.change_node(uid, node.to_string());
 
-                        let fresh_user = self.get_user(uid.to_owned());
-                        let json = serde_json::to_string(&user_left_event).unwrap();
-                        self.notify_node(&old_node, &json);
+                                let user_left_event = UserLeftEvent {
+                                    reason: "userLeft".to_string(),
+                                    initiator: user.id.to_string()
+                                };
 
-                        let user_join_event = UserJoinEvent {
-                            reason: "userJoin".to_string(),
-                            user: fresh_user.to_owned()
-                        };
-                        // ниндзя код
-                        let json2 = serde_json::to_string(&user_join_event).unwrap();
-                        self.notify_node(node, &json2);
+                                let fresh_user = self.get_user(uid.to_owned());
+                                let json = serde_json::to_string(&user_left_event).unwrap();
+                                self.notify_node(&old_node, &json);
+
+                                match fresh_user {
+                                    Some(user) => {
+                                        let user_join_event = UserJoinEvent {
+                                            reason: "userJoin".to_string(),
+                                            user: user.to_owned()
+                                        };
+
+                                        // ниндзя код
+                                        let json2 = serde_json::to_string(&user_join_event).unwrap();
+                                        self.notify_node(node, &json2);
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            _ => {}
+                        }
 
                         let users = self.get_node_users(node);
                         let node_users_event = NodeUsersEvent {
