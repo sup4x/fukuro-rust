@@ -38,7 +38,7 @@ pub struct UserDto {
     pub color : String,
     pub sprite : Sprite,
     pub position: String,
-    pub node: String
+    pub node: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -83,4 +83,15 @@ pub struct ChatEvent {
 pub struct NodeUsersEvent {
     pub reason: String,
     pub users: Vec<UserDto>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone)]
+pub struct currentTime {
+    pub dayTime: String,
+    pub seconds: i8,
+    pub minutes: i8,
+    pub hours: i8,
+    pub days: i8,
+    pub shift: i8,
 }

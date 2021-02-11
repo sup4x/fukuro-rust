@@ -1,22 +1,27 @@
+//mod ws;
 use crate::messages::{ClientActorMessage, Connect, Disconnect, WsMessage};
 use actix::prelude::{Actor, Context, Handler, Recipient};
 use std::collections::{HashMap};
-use crate::message_types::{ClientEvent, UserDto, Sprite, UserJoinEvent, SpriteChangeEvent, UserLeftEvent, UpdateUserPosition, ChatEvent, NodeUsersEvent};
+use crate::message_types::{ClientEvent, UserDto, Sprite, UserJoinEvent, SpriteChangeEvent, UserLeftEvent, UpdateUserPosition, ChatEvent, NodeUsersEvent, currentTime};
 use uuid::Uuid;
+use std::time::{Duration, Instant};
 
+const MINUTES_TICK: Duration = Duration::from_secs(5);
 
 type Socket = Recipient<WsMessage>;
 
 pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,
-    users: HashMap<Uuid, UserDto>
+    users: HashMap<Uuid, UserDto>,
+    time: HashMap<Uuid, currentTime>
 }
 
 impl Default for Lobby {
     fn default() -> Lobby {
         Lobby {
             sessions: HashMap::new(),
-            users: HashMap::new()
+            users: HashMap::new(),
+            time: HashMap::new()
         }
     }
 }
@@ -65,6 +70,8 @@ impl Lobby {
             user.node = String::from(node.as_str());
             user.state = "active".to_string();
         }
+
+
     }
 
     fn update_user_sprite(&mut self, client_event: ClientEvent, uuid: Uuid) {
@@ -114,6 +121,23 @@ impl Lobby {
             .cloned().collect();
         return node_users;
     }
+
+    //fn defaultTime(&mut self) -> Vec<currentTime> {
+        //self.minutes += 0;
+    //}
+
+    // fn campTime(&mut self, uuid: Uuid, ctx: &mut ws::WebsocketContext<Self>) {
+    //     let mut time_ref = self.time.get_mut(&uuid);
+    //     let time = time_ref.as_deref_mut().unwrap();
+    //     ctx.run_interval(MINUTES_TICK, |act, ctx| {
+    //         time.minutes += 1;
+    //         if time.minutes == 60 {
+    //             time.hours += 1;
+    //             time.minutes = 0;
+    //         };
+    //         println!("Current time is {:?}:{:?}", time.hours, time.minutes);
+    //     });
+    // }
 }
 
 
