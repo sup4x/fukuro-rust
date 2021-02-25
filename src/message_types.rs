@@ -16,6 +16,17 @@ pub struct Sprite {
 
 #[derive(Debug, Serialize, Deserialize)]
 #[derive(Clone)]
+pub struct currentTime {
+    pub dayTime: String,
+    pub seconds: i8,
+    pub minutes: i8,
+    pub hours: i8,
+    pub days: i8,
+    pub shift: i8,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone)]
 pub struct ClientEvent {
     pub reason : String,
     pub id: Option<i64>,
@@ -26,7 +37,8 @@ pub struct ClientEvent {
     pub sprite : Option<Sprite>,
     pub target : Option<String>,
     pub position : Option<String>,
-    pub message: Option<String>
+    pub message: Option<String>,
+    pub time: Option <currentTime>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -39,6 +51,7 @@ pub struct UserDto {
     pub sprite : Sprite,
     pub position: String,
     pub node: String,
+    pub time: currentTime,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -83,15 +96,4 @@ pub struct ChatEvent {
 pub struct NodeUsersEvent {
     pub reason: String,
     pub users: Vec<UserDto>,
-}
-
-#[derive(Debug, Serialize, Deserialize)]
-#[derive(Clone)]
-pub struct currentTime {
-    pub dayTime: String,
-    pub seconds: i8,
-    pub minutes: i8,
-    pub hours: i8,
-    pub days: i8,
-    pub shift: i8,
 }

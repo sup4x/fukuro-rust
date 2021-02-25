@@ -27,6 +27,11 @@ impl Default for Lobby {
 }
 
 impl Lobby {
+    //fn defaultTime(&mut self) {
+    //    //println!("{:?}",self.time);
+    //    let time = "10";
+    //
+    //}
 
     fn send_message(&self, message: &str, id_to: &Uuid) {
         if let Some(socket_recipient) = self.sessions.get(id_to) {
@@ -65,12 +70,18 @@ impl Lobby {
             let name = client_event.name.unwrap();
             let color = client_event.color.unwrap();
             let node = client_event.node.unwrap();
+            //let time = client_event.serverTime.unwrap();
             user.name = String::from(name.as_str());
             user.color = String::from(color.as_str());
             user.node = String::from(node.as_str());
             user.state = "active".to_string();
+            user.time.dayTime = "".to_string();
+            user.time.seconds = 0;
+            user.time.minutes = 0;
+            user.time.hours = 0;
+            user.time.days = 0;
+            user.time.shift = 0;
         }
-
 
     }
 
@@ -121,10 +132,6 @@ impl Lobby {
             .cloned().collect();
         return node_users;
     }
-
-    //fn defaultTime(&mut self) -> Vec<currentTime> {
-        //self.minutes += 0;
-    //}
 
     // fn campTime(&mut self, uuid: Uuid, ctx: &mut ws::WebsocketContext<Self>) {
     //     let mut time_ref = self.time.get_mut(&uuid);
@@ -194,7 +201,15 @@ impl Handler<Connect> for Lobby {
                     emotion: "".to_string(),
                     offset: "".to_string()
                 },
-                node: "".to_string()
+                node: "".to_string(),
+                time: currentTime {
+                    dayTime: "".to_string(),
+                    seconds: 0,
+                    minutes: 0,
+                    hours: 0,
+                    days: 0,
+                    shift: 0
+                }
             }
         );
         self.send_message(&msg.self_id.to_string(), &msg.self_id);
@@ -245,7 +260,6 @@ impl Handler<ClientActorMessage> for Lobby {
                     let message = client_event.message.as_deref().unwrap();
                     let sender = uid.to_string();
                     let user = self.get_user(uid);
-
 
                     match user {
                         Some(user) => {
