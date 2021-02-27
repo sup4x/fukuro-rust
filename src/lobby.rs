@@ -4,16 +4,16 @@ use actix::prelude::{Actor, Context, Handler, Recipient};
 use std::collections::{HashMap};
 use crate::message_types::{ClientEvent, UserDto, Sprite, UserJoinEvent, SpriteChangeEvent, UserLeftEvent, UpdateUserPosition, ChatEvent, NodeUsersEvent, currentTime};
 use uuid::Uuid;
-use std::time::{Duration, Instant};
+//use std::time::{Duration, Instant};
 
-const MINUTES_TICK: Duration = Duration::from_secs(5);
+//const MINUTES_TICK: Duration = Duration::from_secs(5);
 
 type Socket = Recipient<WsMessage>;
 
 pub struct Lobby {
     sessions: HashMap<Uuid, Socket>,
     users: HashMap<Uuid, UserDto>,
-    time: HashMap<Uuid, currentTime>
+    //time: HashMap<Uuid, currentTime>
 }
 
 impl Default for Lobby {
@@ -21,7 +21,7 @@ impl Default for Lobby {
         Lobby {
             sessions: HashMap::new(),
             users: HashMap::new(),
-            time: HashMap::new()
+            //time: HashMap::new()
         }
     }
 }
@@ -81,8 +81,7 @@ impl Lobby {
             user.time.hours = 0;
             user.time.days = 0;
             user.time.shift = 0;
-        }
-
+        };
     }
 
     fn update_user_sprite(&mut self, client_event: ClientEvent, uuid: Uuid) {
@@ -257,9 +256,18 @@ impl Handler<ClientActorMessage> for Lobby {
 
                 }
                 "chatMessage" => {
-                    let message = client_event.message.as_deref().unwrap();
+                    let def_message = client_event.message.as_deref().unwrap();
+                    let mut message = def_message;
                     let sender = uid.to_string();
                     let user = self.get_user(uid);
+
+                    let mut out_message = "".to_string();
+                    for i in message.chars() {
+                        if i == '/' {out_message = out_message + &"((".to_string();}
+                        else {out_message = out_message + &i.to_string();}
+                    }
+
+                    message = &out_message;
 
                     match user {
                         Some(user) => {
